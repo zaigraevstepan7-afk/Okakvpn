@@ -1,0 +1,11 @@
+# Decompilation/build workspace — large, regenerable via scripts/rebuild.sh
+/work/
+/tools/
+/artifacts/
+
+# Build/keystore secrets and large binaries
+*.apk
+*.apks
+*.keystore
+*.idsig
+PingVPN-*.zip
