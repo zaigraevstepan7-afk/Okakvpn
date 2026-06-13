@@ -183,3 +183,31 @@ firebase_messaging_auto_init_enabled = false
 Поэтому убрать попап репакингом нельзя, не сломав загрузку серверов и без
 исходников Flutter. Надёжно гасится только на стороне устройства
 (Private DNS / AdGuard, блок хоста `ping-vpn.vercel.app`) — но это заблокирует и серверы.
+
+---
+
+# Раунд 4 — Quick Settings плитка (быстрое вкл/выкл из шторки)
+
+Добавлен `TileService`, переключающий VPN прямо из панели быстрых настроек.
+
+## Реализация
+- `com.pingsecure.client.app.tile.RootVpnTileService` (`smali_classes7/.../tile/`):
+  - `onClick()` — тоггл: читает статический флаг `Lkotlin/random/RandomKt;->isRunning:Z`
+    и вызывает `XrayService.Companion.stop()` (если включён) или `.start()` (если
+    выключен). Оба метода самодостаточны (берут глобальный контекст через
+    `Okio.getApplication()`), Activity не требуется.
+  - `onStartListening()`/`refresh()` — отображает состояние плитки
+    (ACTIVE/INACTIVE) и подпись «Root VPN».
+- `res/drawable/ic_qs_rootvpn.xml` — монохромная векторная иконка-щит (тинтуется системой).
+- Манифест: `<service ... android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">`
+  + `<intent-filter><action android:name="android.service.quicksettings.action.QS_TILE"/>`.
+
+## Использование
+- В шторке → «Изменить плитки» → перетащить **Root VPN**.
+- Программный клик (root):
+  `su -c "cmd statusbar click-tile com.pingsecure.client.app/.tile.RootVpnTileService"`
+
+## Оговорка
+Первое подключение нужно один раз сделать из приложения (системное согласие
+`VpnService.prepare`). После этого плитка/команда включают/выключают VPN
+по последнему выбранному серверу без открытия приложения.
