@@ -151,3 +151,35 @@ firebase_messaging_auto_init_enabled = false
 - ad/telemetry auto-init провайдеров: **0**; легитимных: 4
 - essential `.so` целы (`libgojni` извлекается в полные 33 323 880 B)
 - Firebase kill-switch флаги присутствуют
+
+---
+
+# Раунд 3 — ребрендинг (Root VPN) + новый дизайн иконки/splash
+
+Артефакт: **`RootVPN-1.1.17-noads-clean.apk`**.
+
+## 7. Переименование
+`android:label` "Ping VPN" → **"Root VPN"** (launcher-имя). Имена внутри UI —
+в компилированном Flutter (`libapp.so`), не меняются.
+
+## 8. Новая иконка + splash (векторно, без растровых ассетов)
+- `res/drawable/ic_launcher_background.xml` — диагональный градиент индиго→синий→циан
+  (`#4338CA → #2563EB → #06B6D4`).
+- `res/drawable/ic_root_foreground.xml` — белый щит с замочной скважиной
+  (security/root-мотив), `fillType="evenOdd"` для сквозного выреза.
+- `res/mipmap-anydpi-v26/ic_launcher.xml` — adaptive-icon + `monochrome`
+  (themed icons на Android 13+).
+- `res/drawable/launch_background.xml` — splash в том же градиенте с центрированным лого.
+- Легаси-растровые `mipmap-*/ic_launcher.webp` (Android ≤ 7) оставлены как есть —
+  на API 26+ (≈все актуальные устройства) показывается новая векторная иконка.
+
+## 9. Telegram-попап — почему НЕ убран
+Это **серверное in-app сообщение**, а не реклама SDK. API приложения
+(`libapp.so`): `/api/v1/app/message-shown`, `/api/v1/app/message-action-taken`,
+конфиг с `/api/v1/system/get-current-config` и `/api/v1/init/initialize`.
+Текст промо в бинаре/ассетах отсутствует — приходит с бэкенда
+(`ping-vpn.vercel.app`), **с того же хоста, что и список серверов**
+(`/api/v1/vpn/vpn-configurations`). Триггер показа — в компилированном Dart.
+Поэтому убрать попап репакингом нельзя, не сломав загрузку серверов и без
+исходников Flutter. Надёжно гасится только на стороне устройства
+(Private DNS / AdGuard, блок хоста `ping-vpn.vercel.app`) — но это заблокирует и серверы.
