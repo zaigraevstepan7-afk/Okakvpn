@@ -93,3 +93,61 @@ tools/build-tools/apksigner sign --ks tools/release.keystore … --out PingVPN-1
   `com.pairip.application.Application` и `LicenseContentProvider`.
 - MTU-кламп и START_STICKY — консервативные улучшения стабильности на стороне
   Android; качество самих VPN-серверов/сети ими не меняется.
+
+---
+
+# Раунд 2 — дебло­ат, приватность, DNS
+
+Артефакт: **`PingVPN-1.1.17-noads-clean.apk`** (на базе noads-stable + правки ниже).
+
+## 3. Убран PairIP (license check)
+`com.pairip.application.Application` — это просто наследник настоящего
+`com.pingsecure.client.app.Application`, добавляющий `LicenseClient.checkLicense()`
+в `attachBaseContext`. В манифесте возвращён настоящий Application, удалён
+`LicenseActivity`:
+```diff
+- android:name="com.pairip.application.Application"
++ android:name="com.pingsecure.client.app.Application"
+- <activity android:name="com.pairip.licensecheck.LicenseActivity"/>
+```
+Проверка лицензии Google Play больше не выполняется.
+
+## 4. Дебло­ат: удалены мёртвые рекламные нативные либы
+Реклама отключена → их `.so` никогда не грузятся. Удалены из `lib/arm64-v8a/`:
+`libapplovin-native-crash-reporter`, `libtapjoy`, `libpglarmor`,
+`libtobEmbedPagEncrypt`, `libtt_ugen_layout`, `libnms`, `libapminsighta`,
+`libapminsightb` (последние два — APM-телеметрия ByteDance).
+Осталось 8 essential-либ: `libapp`, `libflutter`, `libdartjni`, `libgojni`
+(Xray), `libtun2socks`, `libbuffer`, `libdatastore_shared_counter`,
+`libfile_lock`.
+
+## 5. Приватность: вырезана авто-инициализация рекламы/телеметрии
+Удалены `ContentProvider`'ы, поднимавшие SDK на старте процесса (пинги в сеть
+ещё до любого показа): MyTarget, AppLovin, Vungle, Facebook Audience, IronSource
+(×2), Mintegral, Bigo, Maticoo, Yandex DebugPanel, а также AppMetrica
+`PreloadInfoContentProvider`. Остались только легитимные провайдеры:
+`androidx.startup.InitializationProvider`, `FirebaseInitProvider`,
+`PicassoProvider`, `ShareFileProvider`.
+
+Добавлены manifest-флаги отключения телеметрии Firebase/GA (фреймворк хранит
+`true/false` как boolean, SDK читают через `getBoolean`):
+```xml
+firebase_analytics_collection_enabled = false
+firebase_crashlytics_collection_enabled = false
+firebase_performance_collection_enabled = false
+google_analytics_adid_collection_enabled = false
+google_analytics_default_allow_ad_personalization_signals = false
+firebase_messaging_auto_init_enabled = false
+```
+
+## 6. Надёжные DNS
+В `Xray.buildVpnInterface`, после цикла применения DNS из конфига, в TUN
+добавляются резолверы-fallback **1.1.1.1 (Cloudflare)** и **8.8.8.8 (Google)** —
+меньше залипаний резолва и DNS-leak. Конфигурационные DNS остаются приоритетными.
+
+## Проверки round 2
+- `apksigner verify` → v2+v3 OK
+- Application = `com.pingsecure.client.app.Application` (PairIP убран)
+- ad/telemetry auto-init провайдеров: **0**; легитимных: 4
+- essential `.so` целы (`libgojni` извлекается в полные 33 323 880 B)
+- Firebase kill-switch флаги присутствуют
